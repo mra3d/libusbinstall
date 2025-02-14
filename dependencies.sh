@@ -1,115 +1,115 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-export PATH=/usr/local/bin:$PATH
-which brew > /dev/null
-if [ $? -ne 0 ]; then
-    echo "NO HOMEBREW. Install it from brew.sh"
-    exit
-    return
+function print_separator() {
+    printf '%.s─' $(seq 1 $(tput cols))
+}
+
+function clear_with_text() {
+    print_separator
+    echo '[Legitunlocks]'
+    print_separator
+}
+
+function install_macos_dependencies() {
+    print_separator
+    echo '[MacOS]'
+    print_separator
+    echo 'The installation for macOS dependencies requires sudo permission. Please enter your password (it is invisible) and press return.'
+    print_separator
+    
+    sudo -v
+    while true; do sudo -n true; sleep 60; kill -0 "$" || exit; done 2>/dev/null &
+    
+    if [[ ! -e $(which brew) ]]; then
+        clear_with_text
+        echo '[Homebrew]'
+        print_separator
+        echo 'The package manager Homebrew will be installed.'
+        echo 'Please pay attention if the installation asks to press return (enter).'
+        print_separator
+        sleep 5
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    else
+        clear_with_text
+        echo '[Homebrew]'
+        print_separator
+        echo 'Homebrew is already installed. Proceeding...'
+        print_separator
+        sleep 2
+    fi
+    
+    clear_with_text
+    echo 'Automated installation will now proceed. This may take 10-40 minutes depending on internet speed and CPU performance.'
+    echo 'Sit back, relax, and please wait.'
+    print_separator
+    sleep 5
+    
+    for i in {1..10}; do
+        sudo chown -R $(whoami) /usr/local/share/man/man$i
+    done
+    
+    brew install pkg-config libtool automake cmake python@3.13 python-tk@3.13
+    
+    clear_with_text
+    
+    if ! ideviceactivation -v; then
+        build_libimobiledevice
+    else
+        clear_with_text
+        echo '[iDevice]'
+        print_separator
+        echo 'iDevice is already installed. Proceeding...'
+        print_separator
+        sleep 2
+    fi
+}
+
+function build_libimobiledevice() {
+    libs=( "libplist" "libtatsu" "libimobiledevice-glue" "libusbmuxd" "libimobiledevice" "usbmuxd" "libirecovery" "ideviceinstaller" "libideviceactivation" "idevicerestore" )
+    
+    for lib in "${libs[@]}"; do
+        clear_with_text
+        rm -rf $lib
+        echo "[Building] Fetching $lib..."
+        print_separator
+        git clone https://github.com/libimobiledevice/${lib}.git
+        cd $lib
+        print_separator
+        echo "[Building] Configuring $lib..."
+        print_separator
+        PKG_CONFIG_PATH=/usr/local/lib/pkgconfig ./autogen.sh --without-cython
+        print_separator
+        echo "[Building] Compiling $lib..."
+        print_separator
+        make
+        print_separator
+        echo "[Building] Installing $lib..."
+        print_separator
+        sudo make install
+        print_separator
+        cd ..
+        rm -rf $lib
+        
+        if [[ -e $(which ldconfig) ]]; then
+            sudo ldconfig
+        fi
+    done
+    
+    if [[ -e $(which ldconfig) ]]; then
+        sudo ldconfig
+    fi
+}
+
+clear_with_text
+
+echo 'Welcome! This script will install all dependencies .'
+print_separator
+
+if [[ $(uname) == 'Darwin' ]]; then
+    install_macos_dependencies
 fi
 
-echo  need full access to install the dependencies
-echo Enter your Mac login password:
-sudo -v
-
-sudo rm -rf dependencies
-sudo mkdir dependencies
-cd dependencies
-sudo mkdir libimobiledevice
-cd libimobiledevice
-
-xcode-select --install
-
-echo " "
-echo Install the Command Line Tools if prompted.
-echo If you see an xcode error ignore it.
-echo " "
-echo :::: Dependencies for MacOS Mojave, Catalina, Big Sur, Monterey ::::
-
-echo " "
-echo NOTE: The code scrolls by very fast. Thats normal.
-echo You may see odd errors and warnings. Thats normal.
-echo DO NOT intervene. Let it run until completion.
-echo " "
-
-read -p "Click Enter to Acknowledge and Continue..."
-
-brew install libusb
-brew install libtool
-brew install automake
-brew install curl
-brew reinstall libxml2
-echo 'export PATH="/usr/local/opt/libxml2/bin:$PATH"' >> ~/.zshrc
-export LDFLAGS="-L/usr/local/opt/libxml2/lib"
-export CPPFLAGS="-I/usr/local/opt/libxml2/include"
-export PKG_CONFIG_PATH="/usr/local/opt/libxml2/lib/pkgconfig"
-brew install gnutls
-brew install libgcrypt
-brew install pkg-config
-brew link pkg-config
-
-echo "[*]Installing openssl ..."
-sudo rm -r -f openssl
-sudo git clone https://github.com/openssl/openssl.git
-cd openssl
-sudo ./config
-sudo make
-sudo make install
-cd ..
-
-echo "[*]Installing libplist ..."
-sudo rm -r -f libplist
-sudo git clone https://github.com/libimobiledevice/libplist.git
-cd libplist
-sudo ./autogen.sh --without-cython
-sudo make
-sudo make install
-cd ..
-
-echo "[*]Installing libimobiledevice-glue ..."
-sudo rm -r -f libimobiledevice-glue
-sudo git clone https://github.com/libimobiledevice/libimobiledevice-glue.git
-cd libimobiledevice-glue
-sudo ./autogen.sh
-sudo make
-sudo make install
-cd ..
-
-echo "[*]Installing libusbmuxd ..."
-sudo rm -r -f libusbmuxd
-sudo git clone https://github.com/libimobiledevice/libusbmuxd.git
-cd libusbmuxd
-sudo ./autogen.sh
-sudo make
-sudo make install
-cd ..
-
-echo "[*]Installing libimobiledevice ..."
-sudo rm -r -f libimobiledevice
-sudo git clone https://github.com/libimobiledevice/libimobiledevice.git
-cd libimobiledevice
-sudo ./autogen.sh --without-cython --disable-openssl
-sudo make
-sudo make install
-cd ..
-
-echo "[*]Installing patched libideviceactivation by OliTheRepairDude ... "
-sudo rm -r -f libideviceactivation
-sudo git clone https://github.com/OliTheRepairDude/libideviceactivation.git
-cd libideviceactivation
-sudo ./autogen.sh
-sudo make 
-sudo make clean
-sudo make install
-cd ..
-
-echo "[*]Installing libirecovery ... "
-sudo rm -r -f libirecovery
-sudo git clone https://github.com/libimobiledevice/libirecovery.git
-cd libirecovery
-sudo ./autogen.sh
-sudo make
-sudo make install
-cd ..
-
-echo "ALL DONE. Everything should be working now."
+clear_with_text
+echo 'Dependency installation is complete!'
+echo 'Thank you for your patience!'
+print_separator
